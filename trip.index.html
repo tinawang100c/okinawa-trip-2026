@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>沖繩自駕隨身小幫手 🌺</title>
+    <style>
+        :root {
+            --primary: #C85A32;
+            --secondary: #5B7051;
+            --bg: #F7F5F0;
+            --card-bg: #FFFFFF;
+            --text: #2B2B2B;
+            --accent: #E8985E;
+        }
+
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background-color: var(--bg); color: var(--text); margin: 0; padding-bottom: 70px; }
+        
+        /* Header & Tabs */
+        .header { background: linear-gradient(135deg, var(--primary), var(--accent)); color: white; padding: 16px; text-align: center; border-radius: 0 0 16px 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .header h1 { margin: 0; font-size: 1.2rem; }
+        
+        .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; background: white; display: flex; border-top: 1px solid #ddd; z-index: 1000; height: 60px; }
+        .tab-btn { flex: 1; border: none; background: none; padding: 8px 0; font-size: 0.75rem; color: #666; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .tab-btn.active { color: var(--primary); font-weight: bold; }
+        .tab-btn span { font-size: 1.2rem; margin-bottom: 2px; }
+
+        .content-section { display: none; padding: 12px; }
+        .content-section.active { display: block; }
+
+        /* Card Styles */
+        .card { background: var(--card-bg); border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+        .card-title { font-size: 1rem; font-weight: bold; color: var(--primary); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        
+        /* Itinerary Styles */
+        .item-row { border-bottom: 1px dashed #eee; padding: 8px 0; }
+        .item-row:last-child { border-bottom: none; }
+        .time-badge { background: #eee; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; }
+        .btn-link { display: inline-block; padding: 4px 8px; font-size: 0.75rem; border-radius: 4px; text-decoration: none; margin-top: 4px; margin-right: 4px; }
+        .btn-map { background: #E3F2FD; color: #1976D2; }
+        .btn-booking { background: #FFF3E0; color: #E65100; }
+        .booking-status { font-size: 0.75rem; padding: 2px 6px; border-radius: 10px; font-weight: bold; }
+        .status-done { background: #E8F5E9; color: #2E7D32; }
+        .status-none { background: #FFEBEE; color: #C62828; }
+
+        /* Expense Tracker */
+        .calc-box { background: #EFEBE9; padding: 10px; border-radius: 8px; margin-bottom: 12px; font-size: 0.9rem; }
+        .calc-box input { width: 80px; padding: 4px; border-radius: 4px; border: 1px solid #ccc; text-align: center; }
+        .expense-list { max-height: 250px; overflow-y: auto; }
+        .expense-item { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #eee; }
+        
+        /* Form Inputs */
+        input, select, button { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; margin-top: 6px; box-sizing: border-box; }
+        button.btn-primary { background: var(--primary); color: white; border: none; font-weight: bold; }
+
+        /* Translation List */
+        .trans-card { border-left: 4px solid var(--secondary); margin-bottom: 8px; padding: 8px; background: white; border-radius: 4px; }
+        .trans-jp { font-size: 1.1rem; color: #D32F2F; font-weight: bold; margin: 4px 0; }
+        .trans-roma { font-size: 0.85rem; color: #666; }
+
+        /* Helper Assistant */
+        .chat-bubble { background: #E8F5E9; padding: 10px; border-radius: 8px; border-left: 4px solid var(--secondary); font-size: 0.9rem; line-height: 1.4; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>沖繩 5D4N 隨身手冊 🌺</h1>
+        <small>住宿：今歸仁村 Villa星界</small>
+    </div>
+
+    <!-- 頁籤 1: 行程與地圖 -->
+    <div id="tab-itinerary" class="content-section active">
+        <div class="card" style="background:#FFF8E1;">
+            <div class="card-title">🌦️ 沖繩即時天氣</div>
+            <div id="weather-info">正在載入那霸/名護天氣...</div>
+        </div>
+
+        <div id="itinerary-cards"></div>
+    </div>
+
+    <!-- 頁籤 2: 記帳 (日幣/台幣) -->
+    <div id="tab-expense" class="content-section">
+        <div class="card">
+            <div class="card-title">💴 快速換算 & 記帳</div>
+            <div class="calc-box">
+                當前匯率 Setting：1 JPY = <input type="number" id="exchange-rate" value="0.215" step="0.001" onchange="updateRate()"> TWD
+            </div>
+            
+            <input type="text" id="exp-name" placeholder="項目 (例：幸福鬆餅 / 燒肉)">
+            <input type="number" id="exp-jpy" placeholder="金額 (日幣 JPY)" oninput="calcTwdPreview()">
+            <div id="twd-preview" style="font-size:0.85rem; color:#666; margin-top:4px;">預估約 NT$ 0</div>
+            
+            <button class="btn-primary" onclick="addExpense()" style="margin-top:10px;">新增記帳</button>
+        </div>
+
+        <div class="card">
+            <div class="card-title">
+                <span>📝 花費明細</span>
+                <span id="total-twd" style="font-size:0.9rem; color:var(--primary);">總計: NT$ 0</span>
+            </div>
+            <div class="expense-list" id="expense-list"></div>
+            <button onclick="clearExpenses()" style="background:#FFEBEE; color:#C62828; border:none; margin-top:10px;">清除所有紀錄</button>
+        </div>
+    </div>
+
+    <!-- 頁籤 3: 旅遊小幫手 -->
+    <div id="tab-helper" class="content-section">
+        <div class="card">
+            <div class="card-title">🤖 行程智慧小幫手</div>
+            <p style="font-size:0.85rem; color:#555;">選擇天數，為您分析本日提醒、駕車動線與必吃推薦：</p>
+            <select id="helper-day-select" onchange="getDailyTips()">
+                <option value="1">Day 1 (9/23) 南部/玉泉洞/DMM/Villa</option>
+                <option value="2">Day 2 (9/24) 港川/恩納/美國村/AEON</option>
+                <option value="3">Day 3 (9/25) 水族館/岸本/古宇利/唐吉訶德</option>
+                <option value="4">Day 4 (9/26) 波上宮/魚市場/濱邊茶屋/國際通</option>
+                <option value="5">Day 5 (9/27) 退房/南下還車/搭機</option>
+            </select>
+            <div id="helper-output" class="chat-bubble" style="margin-top:10px;"></div>
+        </div>
+    </div>
+
+    <!-- 頁籤 4: 常用翻譯語音 -->
+    <div id="tab-translate" class="content-section">
+        <div class="card">
+            <div class="card-title">🗣️ 沖繩自駕常用日文</div>
+            <p style="font-size:0.8rem; color:#666;">點擊🔊發音按鈕可直接對店員播放日語：</p>
+            <div id="translate-list"></div>
+        </div>
+    </div>
+
+    <!-- 底部導覽列 -->
+    <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchTab('itinerary', this)"><span>🗺️</span>行程地圖</button>
+        <button class="tab-btn" onclick="switchTab('expense', this)"><span>💴</span>匯率記帳</button>
+        <button class="tab-btn" onclick="switchTab('helper', this)"><span>🤖</span>旅遊助手</button>
+        <button class="tab-btn" onclick="switchTab('translate', this)"><span>🗣️</span>隨身翻譯</button>
+    </div>
+
+    <script>
+        // 1. 行程資料集 (包含地圖、預約狀態、連結)
+        const itineraryData = [
+            {
+                day: "Day 1 (9/23 週三)",
+                items: [
+                    { time: "12:10-13:30", title: "抵達沖繩 & 租車手續", map: "那霸機場", booking: "已預約租車", booked: true },
+                    { time: "14:00-15:30", title: "瀨長島 Umikaji Terrace", map: "瀨長島", booking: "幸福鬆餅(需預約)", booked: true, link: "https://www.google.com" },
+                    { time: "15:50-17:30", title: "沖繩世界文化王國 / 玉泉洞", map: "玉泉洞", booking: "現場購票", booked: false },
+                    { time: "17:50-20:30", title: "DMM水族館 / Outlet", map: "DMM Kariyushi", booking: "免預約", booked: false },
+                    { time: "20:30-22:00", title: "Check-in Villa星界", map: "今歸仁村", booking: "已訂房", booked: true }
+                ]
+            },
+            {
+                day: "Day 2 (9/24 週四)",
+                items: [
+                    { time: "09:30-10:30", title: "港川外人住宅區", map: "港川外人住宅", booking: "無須預約", booked: false },
+                    { time: "11:00-13:30", title: "萬座毛 / 恩納村海岸", map: "萬座毛", booking: "現場門票", booked: false },
+                    { time: "14:00-18:00", title: "美國村 American Village", map: "美國村", booking: "自由逛街", booked: false },
+                    { time: "18:30-21:00", title: "AEON MALL 來客夢", map: "AEON MALL Okinawa Rycom", booking: "免預約", booked: false }
+                ]
+            },
+            {
+                day: "Day 3 (9/25 週五)",
+                items: [
+                    { time: "09:30-12:30", title: "美麗海水族館 (停P7)", map: "美麗海水族館", booking: "預先買票", booked: true },
+                    { time: "12:30-13:30", title: "岸本食堂 (百年沖繩麵)", map: "岸本食堂", booking: "現場排隊", booked: false },
+                    { time: "14:00-16:30", title: "古宇利島 (蝦蝦飯/心形岩)", map: "古宇利島", booking: "無須預約", booked: false },
+                    { time: "19:00-21:00", title: "名護 MEGA 唐吉訶德", map: "MEGA Don Quijote Nago", booking: "免預約", booked: false }
+                ]
+            },
+            {
+                day: "Day 4 (9/26 週六)",
+                items: [
+                    { time: "09:30-10:30", title: "波上宮參拜", map: "波上宮", booking: "免費參拜", booked: false },
+                    { time: "10:45-12:30", title: "泊港魚市場 海鮮午餐", map: "泊港魚市場", booking: "現場購買", booked: false },
+                    { time: "13:30-16:00", title: "濱邊的茶屋", map: "濱邊的茶屋", booking: "現場登記", booked: false },
+                    { time: "17:00-20:30", title: "那霸國際通商圈", map: "國際通", booking: "自由逛街", booked: false }
+                ]
+            },
+            {
+                day: "Day 5 (9/27 週日)",
+                items: [
+                    { time: "08:30-10:00", title: "Villa 退房出發南下", map: "今歸仁村", booking: "辦理退房", booked: true },
+                    { time: "10:45 前", title: "還車與搭接駁車至機場", map: "那霸機場租車據點", booking: "加滿油還車", booked: true }
+                ]
+            }
+        ];
+
+        // 2. 常用日文翻譯庫
+        const translations = [
+            { ch: "請給我菜單", jp: "メニューをください", roma: "Menu o kudasai" },
+            { ch: "這個多少錢？", jp: "これはいくらですか？", roma: "Kore wa ikura desu ka?" },
+            { ch: "有停車場嗎？", jp: "駐車場はありますか？", roma: "Chūshajō wa arimasu ka?" },
+            { ch: "可以使用信用卡/PayPay嗎？", jp: "カードは使えますか？", roma: "Kādo wa tsukaemasu ka?" },
+            { ch: "請幫我們拍照，謝謝", jp: "写真を撮っていただけますか？", roma: "Shashin o totte itadakemasu ka?" },
+            { ch: "加油：定期汽油/加滿", jp: "レギュラー、満タンで", roma: "Regurā, mantan de" }
+        ];
+
+        // 初始化載入
+        window.onload = function() {
+            renderItinerary();
+            renderTranslations();
+            fetchWeather();
+            loadExpenses();
+            getDailyTips();
+        };
+
+        // 切換 Tab
+        function switchTab(tabId, btn) {
+            document.querySelectorAll('.content-section').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById('tab-' + tabId).classList.add('active');
+            btn.classList.add('active');
+        }
+
+        // 渲染行程
+        function renderItinerary() {
+            const container = document.getElementById('itinerary-cards');
+            container.innerHTML = itineraryData.map(d => `
+                <div class="card">
+                    <div class="card-title">${d.day}</div>
+                    ${d.items.map(i => `
+                        <div class="item-row">
+                            <div><span class="time-badge">${i.time}</span> <strong>${i.title}</strong></div>
+                            <div style="margin-top:4px;">
+                                <a class="btn-link btn-map" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(i.map)}" target="_blank">📍 Google地圖</a>
+                                ${i.link ? `<a class="btn-link btn-booking" href="${i.link}" target="_blank">🔗 預約連結</a>` : ''}
+                                <span class="booking-status ${i.booked ? 'status-done' : 'status-none'}">${i.booking}</span>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `).join('');
+        }
+
+        // 即時天氣 API (Open-Meteo)
+        function fetchWeather() {
+            fetch('https://api.open-meteo.com/v1/forecast?latitude=26.2123,26.5913&longitude=127.6792,127.9773&current_weather=true')
+                .then(res => res.json())
+                .then(data => {
+                    const nahaTemp = data[0].current_weather.temperature;
+                    const nagoTemp = data[1].current_weather.temperature;
+                    document.getElementById('weather-info').innerHTML = `
+                        <b>那霸(南部)：</b> ${nahaTemp}°C ｜ <b>名護(北部)：</b> ${nagoTemp}°C<br>
+                        <small style="color:#666;">💡 沖繩海風較大，建議準備薄外套遮陽防風。</small>
+                    `;
+                }).catch(() => {
+                    document.getElementById('weather-info').innerText = "天氣資訊載入失敗，請檢查網路。";
+                });
+        }
+
+        // 記帳與換算功能
+        let rate = 0.215;
+        let expenses = [];
+
+        function updateRate() {
+            rate = parseFloat(document.getElementById('exchange-rate').value) || 0.215;
+            calcTwdPreview();
+            renderExpenses();
+        }
+
+        function calcTwdPreview() {
+            const jpy = parseFloat(document.getElementById('exp-jpy').value) || 0;
+            const twd = Math.round(jpy * rate);
+            document.getElementById('twd-preview').innerText = `預估約 NT$ ${twd}`;
+        }
+
+        function addExpense() {
+            const name = document.getElementById('exp-name').value;
+            const jpy = parseFloat(document.getElementById('exp-jpy').value);
+            if (!name || isNaN(jpy)) return alert('請填寫完整項目與金額');
+
+            expenses.push({ id: Date.now(), name, jpy });
+            document.getElementById('exp-name').value = '';
+            document.getElementById('exp-jpy').value = '';
+            saveAndRenderExpenses();
+        }
+
+        function saveAndRenderExpenses() {
+            localStorage.setItem('okinawa_exp', JSON.stringify(expenses));
+            renderExpenses();
+        }
+
+        function loadExpenses() {
+            const saved = localStorage.getItem('okinawa_exp');
+            if (saved) expenses = JSON.parse(saved);
+            renderExpenses();
+        }
+
+        function renderExpenses() {
+            const list = document.getElementById('expense-list');
+            let totalTWD = 0;
+            list.innerHTML = expenses.map(e => {
+                const twd = Math.round(e.jpy * rate);
+                totalTWD += twd;
+                return `
+                    <div class="expense-item">
+                        <span>${e.name}</span>
+                        <span>¥${e.jpy} <small style="color:#666;">(NT$${twd})</small></span>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('total-twd').innerText = `總計: NT$ ${totalTWD}`;
+        }
+
+        function clearExpenses() {
+            if (confirm('確定要清除所有記帳項目嗎？')) {
+                expenses = [];
+                saveAndRenderExpenses();
+            }
+        }
+
+        // 旅遊小幫手
+        function getDailyTips() {
+            const day = document.getElementById('helper-day-select').value;
+            const tips = {
+                "1": "🚗 <b>Day 1 提示：</b> 取車後適應右駕，首站瀨長島看海。今天傍晚 19:00 後安排 Outlet/DMM 購物。夜間開車北上至 Villa星界 山路較暗，請開遠光燈並放慢車速。",
+                "2": "🚗 <b>Day 2 提示：</b> 港川外人住宅區停車位較少，建議提早到達。下午美國村海濱夕陽極美，晚上前往沖繩最大的 AEON 來客夢大採買（營業至22:00）。",
+                "3": "🐬 <b>Day 3 提示：</b> 去水族館請直接導航停在 <b>P7 立體停車場</b>，離入口最近！古宇利島必吃蝦蝦飯，晚上可在名護 MEGA 唐吉訶德一次購齊藥妝伴手禮。",
+                "4": "🍣 <b>Day 4 提示：</b> 泊港魚市場海鮮新鮮平價，適合做早午餐。傍晚國際通逛街建議將車停在「縣民廣場地下停車場」，採買阿古豬燒肉或伴手禮。",
+                "5": "✈️ <b>Day 5 提示：</b> 今天為最後一天，請於 10:45 前完成還車手續（加滿油並保留收據），預留充分時間搭乘租車接駁車至那霸機場搭乘 13:15 班機。"
+            };
+            document.getElementById('helper-output').innerHTML = tips[day];
+        }
+
+        // 翻譯語音朗讀
+        function renderTranslations() {
+            const list = document.getElementById('translate-list');
+            list.innerHTML = translations.map(t => `
+                <div class="trans-card">
+                    <div><strong>${t.ch}</strong></div>
+                    <div class="trans-jp">${t.jp}</div>
+                    <div class="trans-roma">${t.roma}</div>
+                    <button onclick="speak('${t.jp}')" style="margin-top:6px; background:#F5F5F5; border:1px solid #ccc; padding:4px; border-radius:4px;">🔊 播放日文語音</button>
+                </div>
+            `).join('');
+        }
+
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'ja-JP';
+                window.speechSynthesis.speak(utterance);
+            } else {
+                alert('您的手機瀏覽器不支援語音合成功能');
+            }
+        }
+    </script>
+</body>
+</html>
